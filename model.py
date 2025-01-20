@@ -46,4 +46,40 @@ class LayerNormalization(nn.Module):
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
         return self.alpha * (x - mean) / (std + self.eps) + self.beta
+
+class FeedForwardBlock(nn.Module):
+    def __init__(self, d_model:int, d_ff:int, dropout:float):
+        super().__init__()
+        self.linear1 = nn.Linear(d_model, d_ff)
+        self.linear2 = nn.Linear(d_ff, d_model)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+    def forward(self, x):
+        x = self.relu(self.linear1(x))
+        x = self.dropout(x)
+        x = self.linear2(x)
+        return x
+
+class MultiHeadAttentionBlock(nn.Module):
+
+    def __init__(self, d_model:int, h:int, dropout:float):
+        super().__init__()
+        self.d_model = d_model
+        self.h = h
+        assert self.d_model % self.h == 0 , "d_model should be divisible by h"
+        self.d_k = self.d_model // self.h
         
+        self.w_q = nn.Linear(d_model, d_model)
+        self.w_k = nn.Linear(d_model, d_model)
+        self.w_v= nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
+        self.w_o = nn.Linear(d_model, d_model)
+    
+    def forward(self, q, k, v, mask=None):
+        query  = self.w_q(q)
+        key = self.w_k(k)
+        value = self.w_v(v)
+        # Split the embedding into self.h heads
+        query = query.view(query.size(0), query.size(1), self.h, self.d_k).transpose(1, 2)
+        key = key.view(key.size(0), key.size(1), self.h, self.d_k).transpose(1, 2)
+        value = value.view(value.size(0), value.size(1), self.h, self.d_k).transpose(1, 2)
